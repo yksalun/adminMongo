@@ -84,15 +84,22 @@ router.post('/database/:conn/:db/db_backup', function (req, res, next){
         uri = uri + '/' + db_name;
     }
 
+    var date_str = common.formatDate("yyyy-MM-dd_HH:mm:ss", new Date());
+    var db_backup_tar = db_name + "#" + date_str + ".tar";
+
+    console.log(`[database] /database/:conn/:db/db_backup db_backup_tar:${db_backup_tar} db_name:${db_name}`);
+
     // kick off the backup
-    mongodbBackup({uri: uri, root: path.join(__dirname, '../backups'), callback: function(err){
-        if(err){
-            console.error('Backup DB error: ' + err);
-            res.status(400).json({'msg': req.i18n.__('Unable to backup database')});
-        }else{
-            res.status(200).json({'msg': req.i18n.__('Database successfully backed up')});
+    mongodbBackup({
+        uri: uri, root: path.join(__dirname, '../backups'), tar: db_backup_tar, callback: function (err) {
+            if (err) {
+                console.error('Backup DB error: ' + err);
+                res.status(400).json({ 'msg': req.i18n.__('Unable to backup database') });
+            } else {
+                res.status(200).json({ 'msg': req.i18n.__('Database successfully backed up') });
+            }
         }
-    }});
+    });
 });
 
 // Restore a database
@@ -112,24 +119,30 @@ router.post('/database/:conn/:db/db_restore', function (req, res, next){
 
     // get the URI
     var conn_uri = MongoURI.parse(connection_list[req.params.conn].connString);
-    var db_name = req.params.db;
+    var db_backup_tar = req.params.db;
 
-    var uri = connection_list['Local'].connString;
+    var db_name = db_backup_tar.split("#")[0];
+
+    var uri = connection_list[req.params.conn].connString;
 
     // add DB to URI if not present
     if(!conn_uri.database){
         uri = uri + '/' + db_name;
     }
 
+    console.log(`[database] /database/:conn/:db/db_restore db_backup_tar:${db_backup_tar} db_name:${db_name} dropTarget:${dropTarget}`);
+
     // kick off the restore
-    mongodbRestore({uri: uri, root: path.join(__dirname, '../backups', db_name), drop: dropTarget, callback: function(err){
-        if(err){
-            console.error('Restore DB error: ' + err);
-            res.status(400).json({'msg': req.i18n.__('Unable to restore database')});
-        }else{
-            res.status(200).json({'msg': req.i18n.__('Database successfully restored')});
+    mongodbRestore({
+        uri: uri, root: path.join(__dirname, '../backups', db_backup_tar), drop: dropTarget, callback: function (err) {
+            if (err) {
+                console.error('Restore DB error: ' + err);
+                res.status(400).json({ 'msg': req.i18n.__('Unable to restore database') });
+            } else {
+                res.status(200).json({ 'msg': req.i18n.__('Database successfully restored') });
+            }
         }
-    }});
+    });
 });
 
 module.exports = router;
